@@ -1,101 +1,96 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { getCurrentUser } from '@/lib/auth';
+import { t } from '@/lib/i18n';
+import { logoutAction } from './actions';
 
-export default function Home() {
+export default async function HomePage() {
+  const { user, supabase } = await getCurrentUser();
+
+  // Active challenge — visible to both authenticated and anon (via the
+  // active_challenge_public view).
+  const { data: challenge } = await supabase
+    .from('active_challenge_public')
+    .select('id, window_closes_at')
+    .maybeSingle();
+
+  let existingPlayId: string | null = null;
+  if (user && challenge?.id) {
+    const { data: play } = await supabase
+      .from('plays')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('challenge_id', challenge.id)
+      .maybeSingle();
+    existingPlayId = play?.id ?? null;
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="flex min-h-dvh flex-col">
+      <header className="flex items-center justify-between px-4 py-4">
+        <span className="text-lg font-semibold tracking-tight">{t['brand.name']}</span>
+        {user ? (
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/leaderboard" className="text-neutral-700 underline">
+              {t['nav.leaderboard']}
+            </Link>
+            <Link href="/profile" className="text-neutral-700 underline">
+              {t['nav.profile']}
+            </Link>
+            <Link href="/settings" className="text-neutral-700 underline">
+              {t['nav.settings']}
+            </Link>
+            <form action={logoutAction}>
+              <button type="submit" className="text-neutral-700 underline">
+                {t['settings.logout']}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <Link href="/login" className="text-sm underline">
+            {t['auth.login.title']}
+          </Link>
+        )}
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-8 px-4 py-8 text-center">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">{t['brand.name']}</h1>
+          <p className="mt-2 text-neutral-600">{t['brand.tagline']}</p>
         </div>
+
+        {!user ? (
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/login"
+              className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white"
+            >
+              {t['auth.login.title']}
+            </Link>
+            <Link href="/signup" className="text-sm underline">
+              {t['auth.signup.submit']}
+            </Link>
+          </div>
+        ) : !challenge ? (
+          <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-6">
+            <h2 className="text-lg font-semibold">{t['home.no_challenge.title']}</h2>
+            <p className="text-sm text-neutral-700">{t['home.no_challenge.body']}</p>
+          </div>
+        ) : existingPlayId ? (
+          <Link
+            href={`/result/${existingPlayId}`}
+            className="rounded-lg border border-neutral-300 px-5 py-2.5 text-sm font-medium"
+          >
+            {t['home.view_result_cta']}
+          </Link>
+        ) : (
+          <Link
+            href={`/play/${challenge.id}`}
+            className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white"
+          >
+            {t['home.play_cta']}
+          </Link>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }

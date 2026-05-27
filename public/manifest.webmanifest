@@ -1,0 +1,19 @@
+{
+  "name": "GeoLeague",
+  "short_name": "GeoLeague",
+  "description": "La sfida quotidiana di geo-guessing italiana.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#0a0a0a",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
