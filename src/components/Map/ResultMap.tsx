@@ -9,8 +9,8 @@ const actualIcon = L.divIcon({
   className: 'gl-pin-actual',
   html: `
     <svg viewBox="0 0 24 32" width="28" height="36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M12 0C5.4 0 0 5.4 0 12c0 8.6 12 20 12 20s12-11.4 12-20C24 5.4 18.6 0 12 0z" fill="#16a34a"/>
-      <circle cx="12" cy="12" r="4" fill="#ffffff"/>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 8.6 12 20 12 20s12-11.4 12-20C24 5.4 18.6 0 12 0z" fill="#5A6845"/>
+      <circle cx="12" cy="12" r="4" fill="#FBF8F2"/>
     </svg>
   `,
   iconSize: [28, 36],
@@ -21,8 +21,8 @@ const guessIcon = L.divIcon({
   className: 'gl-pin-guess',
   html: `
     <svg viewBox="0 0 24 32" width="28" height="36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M12 0C5.4 0 0 5.4 0 12c0 8.6 12 20 12 20s12-11.4 12-20C24 5.4 18.6 0 12 0z" fill="#dc2626"/>
-      <circle cx="12" cy="12" r="4" fill="#ffffff"/>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 8.6 12 20 12 20s12-11.4 12-20C24 5.4 18.6 0 12 0z" fill="#DA5520"/>
+      <circle cx="12" cy="12" r="4" fill="#FBF8F2"/>
     </svg>
   `,
   iconSize: [28, 36],
@@ -63,7 +63,7 @@ export function ResultMap({ guess, actual }: Props) {
         <Marker position={b} icon={actualIcon} />
         <Polyline
           positions={[a, b]}
-          pathOptions={{ color: '#737373', weight: 2, dashArray: '6 6' }}
+          pathOptions={{ color: '#DA5520', weight: 1.5, dashArray: '6 6', opacity: 0.6 }}
         />
         <FitBounds a={a} b={b} />
       </MapContainer>

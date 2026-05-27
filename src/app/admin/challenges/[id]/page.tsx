@@ -63,6 +63,8 @@ export default async function ChallengeInspectPage({
         <dd>{challenge.difficulty}</dd>
         <dt className="font-medium text-neutral-600">Regione</dt>
         <dd>{challenge.region}</dd>
+        <dt className="font-medium text-neutral-600">Fascia oraria</dt>
+        <dd>{challenge.publish_after_hour === 9 ? 'Mattina (09:00)' : challenge.publish_after_hour === 18 ? 'Sera (18:00)' : `${challenge.publish_after_hour}:00`}</dd>
         <dt className="font-medium text-neutral-600">Etichetta</dt>
         <dd>{challenge.location_label ?? '—'}</dd>
         <dt className="font-medium text-neutral-600">Stato</dt>

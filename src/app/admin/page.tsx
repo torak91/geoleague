@@ -17,7 +17,7 @@ export default async function AdminDashboardPage() {
 
   const { data: challenges } = await supabase
     .from('challenges')
-    .select('id, scheduled_for, difficulty, region, location_label, published_at, window_closes_at')
+    .select('id, scheduled_for, publish_after_hour, difficulty, region, location_label, published_at, window_closes_at')
     .order('scheduled_for', { ascending: false })
     .limit(50);
 
@@ -43,7 +43,7 @@ export default async function AdminDashboardPage() {
                 href={`/admin/challenges/${c.id}`}
                 className="flex items-center justify-between px-4 py-3 text-sm hover:bg-neutral-50"
               >
-                <span className="font-medium">{c.scheduled_for}</span>
+                <span className="font-medium">{c.scheduled_for} · {c.publish_after_hour}:00</span>
                 <span className="flex items-center gap-3 text-neutral-600">
                   <span>{c.region}</span>
                   <span>·</span>

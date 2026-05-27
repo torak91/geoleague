@@ -45,11 +45,16 @@ export default async function PlayPage({ params }: { params: { challengeId: stri
 
   const imageUrls = HEADINGS.map((h) => imagePublicUrl(image_prefix, h));
 
+  // Approximate day of year for the challenge header
+  const now = new Date();
+  const dayOfYear = Math.ceil((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+
   return (
     <PlayClient
       challengeId={challengeId}
       imageUrls={imageUrls}
       windowClosesAt={window_closes_at}
+      day={dayOfYear}
     />
   );
 }

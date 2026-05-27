@@ -14,8 +14,15 @@ export async function publishNowAction(formData: FormData) {
   const supabase = createSupabaseServiceClient();
 
   const now = new Date();
-  const windowClose = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  // Close any other active window first (keeps maybeSingle() safe).
+  await supabase
+    .from('challenges')
+    .update({ window_closes_at: now.toISOString() })
+    .not('window_closes_at', 'is', null)
+    .gt('window_closes_at', now.toISOString())
+    .neq('id', id);
 
+  const windowClose = new Date(now.getTime() + 2 * 60 * 60 * 1000);
   const { error } = await supabase
     .from('challenges')
     .update({

@@ -4,7 +4,49 @@
 export const t = {
   // Brand
   'brand.name': 'GeoLeague',
-  'brand.tagline': 'La sfida quotidiana di geo-guessing.',
+  'brand.tagline': 'Una via. Un panorama. Due ore.',
+
+  // Home — new design keys
+  'home.dateHeader': 'Mercoledì 27 maggio · Settimana {week}',
+  'home.dailyChallengeLabel': 'Sfida di oggi · Giorno {day}',
+  'home.opensIn': 'Apre fra {duration}',
+  'home.cta.start': 'Inizia la sfida',
+  'home.cta.remind': 'Avvisami alle {time}',
+  'home.privacyHint': 'Posizione esatta visibile solo dopo la chiusura della finestra',
+  'home.yesterdayLabel': 'Ieri · Giorno {day}',
+  'home.yesterdaySummary': '{score} punti da {place}.',
+  'home.viewResult': 'Rivedi risultato',
+  'home.stats.streak': 'Striscia',
+  'home.stats.best': 'Migliore',
+  'home.stats.rank': 'Posizione',
+  'home.leaderboardTitle': 'Classifica settimanale',
+  'home.viewAll': 'Vedi tutto',
+
+  // Challenge — new design keys
+  'challenge.timerLabel': 'Tempo rimasto',
+  'challenge.submit': 'Invia ipotesi',
+  'challenge.confirm': 'Conferma',
+  'challenge.placePin': 'Piazza il segnaposto',
+  'challenge.pinPlaced': 'Pin posizionato',
+  'challenge.pause': 'Pausa',
+  'challenge.kbHint': 'drag per esplorare · tap sulla mappa per piazzare · Enter per inviare',
+
+  // Result — new design keys
+  'result.label': 'Risultato · Giorno {day}',
+  'result.headline': 'A {km} km da {place}.',
+  'result.breakdown': 'Dettaglio punteggio',
+  'result.bonusSpeed': 'Bonus velocità',
+  'result.total': 'Totale',
+  'result.weeklySection': 'Settimana',
+  'result.weeklyPosition': '#{rank}',
+  'result.cta.leaderboard': 'Vedi classifica completa',
+  'result.cta.share': 'Condividi',
+  'result.cta.home': 'Torna alla home',
+  'result.revealLabel': 'Luogo rivelato',
+  'result.openInMaps': 'Apri in Google Maps',
+
+  // Footer
+  'footer.tagline': '© 2026 geoleague · una sfida al giorno',
 
   // Common
   'common.email': 'Email',

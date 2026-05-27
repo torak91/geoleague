@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { HEADINGS } from '@/lib/headings';
 import { createChallengeAction } from './actions';
 
@@ -20,6 +20,7 @@ export function NewChallengeForm() {
   const [stage, setStage] = useState<'idle' | 'presigning' | 'uploading' | 'creating'>('idle');
   const [, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function onFilesChange(list: FileList | null) {
     setError(null);
@@ -59,6 +60,7 @@ export function NewChallengeForm() {
     const lat = parseFloat(formData.get('lat') as string);
     const lng = parseFloat(formData.get('lng') as string);
     const scheduled_for = formData.get('scheduled_for') as string;
+    const publish_after_hour = parseInt(formData.get('publish_after_hour') as string, 10);
     const difficulty = formData.get('difficulty') as 'easy' | 'medium' | 'hard';
     const region = formData.get('region') as 'nord' | 'centro' | 'sud' | 'isole';
     const location_label = (formData.get('location_label') as string).trim();
@@ -99,20 +101,24 @@ export function NewChallengeForm() {
 
       setStage('creating');
       startTransition(async () => {
+        const auto_publish = (formRef.current?.querySelector('[name=auto_publish]') as HTMLInputElement)?.checked ?? false;
         const result = await createChallengeAction({
           image_prefix: prefix,
           scheduled_for,
+          publish_after_hour,
           lat,
           lng,
           difficulty,
           region,
           location_label: location_label || null,
+          auto_publish,
         });
         if (result && !result.ok) {
+          const detail = 'detail' in result ? ` (${result.detail})` : '';
           setError(
             result.error === 'duplicate_date'
-              ? 'Esiste già una sfida per questa data.'
-              : 'Salvataggio non riuscito.',
+              ? 'Esiste già una sfida per questa data e fascia oraria.'
+              : `Salvataggio non riuscito.${detail}`,
           );
           setIsSubmitting(false);
           setStage('idle');
@@ -129,7 +135,7 @@ export function NewChallengeForm() {
   const fileCountOk = files.length === REQUIRED_COUNT;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className="block text-sm">
           <span className="font-medium">
@@ -208,6 +214,18 @@ export function NewChallengeForm() {
           />
         </label>
         <label className="block text-sm">
+          <span className="font-medium">Fascia oraria</span>
+          <select
+            name="publish_after_hour"
+            required
+            defaultValue="9"
+            className="mt-1 block w-full rounded-lg border border-neutral-300 px-3 py-2"
+          >
+            <option value="9">Mattina (09:00–17:00)</option>
+            <option value="18">Sera (18:00–02:00)</option>
+          </select>
+        </label>
+        <label className="block text-sm">
           <span className="font-medium">Difficoltà</span>
           <select
             name="difficulty"
@@ -244,6 +262,11 @@ export function NewChallengeForm() {
           />
         </label>
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="auto_publish" defaultChecked />
+        <span>Pubblica subito (ignora finestra cron)</span>
+      </label>
 
       {error ? (
         <p role="alert" className="text-sm text-red-600">

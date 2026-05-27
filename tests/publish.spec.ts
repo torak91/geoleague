@@ -32,6 +32,26 @@ describe('publishProbability', () => {
     expect(publishProbability(15, 30)).toBeCloseTo(1 / 3, 6);
   });
 
+  it('evening slot (startHour=18): returns 0 before 18:00', () => {
+    expect(publishProbability(17, 59, 18, 26)).toBe(0);
+    expect(publishProbability(9, 0, 18, 26)).toBe(0);
+  });
+
+  it('evening slot (startHour=18): in-window returns positive probability', () => {
+    expect(publishProbability(18, 0, 18, 26)).toBeCloseTo(1 / 12, 6);
+    expect(publishProbability(18, 30, 18, 26)).toBeCloseTo(1 / 11, 6);
+  });
+
+  it('evening slot (startHour=18): force-publish at 23:30', () => {
+    expect(publishProbability(23, 30, 18, 26)).toBe(1);
+    expect(publishProbability(23, 45, 18, 26)).toBe(1);
+  });
+
+  it('evening slot: returns 0 at or after 00:00 (endHour clamped to 24)', () => {
+    // hour is always 0-23; "after 24" is unreachable, but 0 should be outside window
+    expect(publishProbability(0, 0, 18, 26)).toBe(0);
+  });
+
   it('expected publish count across the window is exactly 1', () => {
     // Sum of 1/16 + 1/15 + … + 1/2 + (final tick = 1) but the 16:30 floor
     // makes things tricky. The probabilities BEFORE the floor sum to 1

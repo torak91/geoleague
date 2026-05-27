@@ -71,21 +71,29 @@ export function romeHourMinute(now: Date = new Date()): { hour: number; minute: 
 /**
  * Probability of publishing on this cron firing.
  *
- * Cron runs every 30 minutes between 09:00 and 17:00 Rome. Each tick has a
- * `1 / remaining_slots` chance, where remaining_slots counts the future
- * (and current) ticks up to 17:00. This yields a uniform random publish
- * time across the window. At 16:30+ the gate returns 1.0 — guaranteed
- * publish if still unpublished.
+ * Uniform random publish time across [startHour, endHour). Cron fires every
+ * 30 min; each tick has 1/remaining_slots chance. At (endHour-1):30+ the
+ * gate returns 1.0 — guaranteed publish if still unpublished.
+ *
+ * Defaults (startHour=9, endHour=17) preserve the original morning-slot
+ * behaviour. endHour values > 24 are clamped to 24.
  *
  * Returns 0 outside the window.
  */
-export function publishProbability(hour: number, minute: number): number {
-  if (hour < 9 || hour >= 17) return 0;
-  if (hour >= 16 && minute >= 30) return 1; // force-publish floor
+export function publishProbability(
+  hour: number,
+  minute: number,
+  startHour: number = 9,
+  endHour: number = 17,
+): number {
+  const end = Math.min(endHour, 24);
+  if (hour < startHour || hour >= end) return 0;
 
-  // Total half-hour slots in [hour:minute .. 17:00).
-  const slotIndex = (hour - 9) * 2 + (minute >= 30 ? 1 : 0); // 0..15
-  const totalSlots = 16; // 8 hours × 2 ticks
+  const forceHour = end - 1;
+  if (hour >= forceHour && minute >= 30) return 1;
+
+  const slotIndex = (hour - startHour) * 2 + (minute >= 30 ? 1 : 0);
+  const totalSlots = (end - startHour) * 2;
   const remaining = totalSlots - slotIndex;
   if (remaining <= 0) return 0;
   return 1 / remaining;

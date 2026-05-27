@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { PanoViewer } from '@/components/Pano/PanoViewer';
 import { GuessMap } from '@/components/Map/GuessMapLoader';
-import { Countdown } from '@/components/Countdown';
-import { t, type TranslationKey } from '@/lib/i18n';
+import { LogoLockup } from '@/components/brand';
 import { markOpenedAction, submitGuessAction } from './actions';
+import { t, type TranslationKey } from '@/lib/i18n';
 
 const submitErrorMap: Record<string, TranslationKey> = {
   window_closed: 'play.error.window_closed',
@@ -15,35 +16,45 @@ const submitErrorMap: Record<string, TranslationKey> = {
   invalid_guess: 'play.error.invalid_guess',
 };
 
-type Props = {
-  challengeId: string;
-  imageUrls: string[];
-  windowClosesAt: string;
-};
+type Props = { challengeId: string; imageUrls: string[]; windowClosesAt: string; day?: number };
 
-export function PlayClient({ challengeId, imageUrls, windowClosesAt }: Props) {
+function formatTimer(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+export function PlayClient({ challengeId, imageUrls, windowClosesAt, day }: Props) {
   const router = useRouter();
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expired, setExpired] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [remainingSec, setRemainingSec] = useState(() =>
+    Math.max(0, Math.floor((new Date(windowClosesAt).getTime() - Date.now()) / 1000))
+  );
   const [, startTransition] = useTransition();
   const markedRef = useRef(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const sec = Math.max(0, Math.floor((new Date(windowClosesAt).getTime() - Date.now()) / 1000));
+      setRemainingSec(sec);
+      if (sec === 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [windowClosesAt]);
+
+  const expired = remainingSec === 0;
+  const canSubmit = pin !== null && !expired && !isSubmitting;
 
   const handlePanoReady = useCallback(async () => {
     if (markedRef.current) return;
     markedRef.current = true;
-    const res = await markOpenedAction(challengeId);
-    if (!res.ok) {
-      // Non-fatal — the score will fall back to 0 speed-bonus on the server.
-      console.warn('markOpened failed', res.error);
-    }
+    await markOpenedAction(challengeId);
   }, [challengeId]);
-
-  const handlePinChange = useCallback((p: { lat: number; lng: number } | null) => {
-    setPin(p);
-  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!pin) return;
@@ -57,90 +68,139 @@ export function PlayClient({ challengeId, imageUrls, windowClosesAt }: Props) {
         const k = submitErrorMap[res.error] ?? 'play.error.generic';
         setError(t[k]);
         setIsSubmitting(false);
-        setConfirmOpen(false);
       }
     });
   }, [challengeId, pin, router]);
 
-  const canSubmit = pin !== null && !expired && !isSubmitting;
+  // Enter key submits
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Enter' && canSubmit) handleSubmit();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [canSubmit, handleSubmit]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-neutral-50">
-      <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 text-sm">
-        <span className="font-semibold">{t['brand.name']}</span>
-        <span className="flex items-center gap-2 text-neutral-700">
-          <span>{t['play.window_label']}:</span>
-          <Countdown deadlineIso={windowClosesAt} onExpire={() => setExpired(true)} />
-        </span>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-3 py-3 pb-28">
+    <main className="relative h-dvh w-screen overflow-hidden bg-ink text-cream">
+      {/* Panorama fills viewport */}
+      <div className="absolute inset-0">
         <PanoViewer imageUrls={imageUrls} onReady={handlePanoReady} />
+      </div>
 
-        <div className="h-[44vh] min-h-[280px]">
-          <GuessMap onChange={handlePinChange} disabled={expired} />
+      {/* Floating glass header */}
+      <header className="absolute inset-x-4 top-4 z-20 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-5 py-3 backdrop-blur-md">
+        <div className="flex items-center gap-5">
+          <LogoLockup size={18} color="#FBF8F2" />
+          <span className="h-5 w-px bg-white/15" />
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] uppercase tracking-wider text-cream/55">Giorno</span>
+            <span className="font-display text-[16px] font-medium tabular-nums">{day ?? '—'}</span>
+          </div>
         </div>
 
-        {error ? (
-          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : null}
-      </main>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-cream/55">Tempo rimasto</span>
+          <motion.span
+            className="font-display text-[32px] font-medium leading-none tracking-tight tabular-nums"
+            animate={remainingSec < 300 ? { opacity: [1, 0.55, 1] } : { opacity: 1 }}
+            transition={{ duration: 1.2, repeat: remainingSec < 300 ? Infinity : 0, ease: 'easeInOut' }}
+            style={{ color: remainingSec < 300 ? '#DA5520' : '#F6EFE2' }}
+          >
+            {formatTimer(remainingSec)}
+          </motion.span>
+        </div>
 
-      <footer className="fixed inset-x-0 bottom-0 border-t border-neutral-200 bg-white p-3">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <span className="text-xs text-neutral-600">
-            {pin
-              ? `${pin.lat.toFixed(4)}, ${pin.lng.toFixed(4)}`
-              : t['play.no_pin']}
-          </span>
+        <div className="flex items-center gap-2">
+          <button className="rounded-xl border border-white/15 px-3 py-2 text-[12px] hover:bg-white/10">
+            Pausa
+          </button>
           <button
             type="button"
             disabled={!canSubmit}
-            onClick={() => setConfirmOpen(true)}
-            className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+            onClick={handleSubmit}
+            className="flex items-center gap-2 rounded-xl bg-flame px-4 py-2 text-[13px] font-semibold text-cream transition active:scale-[0.99] disabled:opacity-40"
           >
-            {expired ? t['play.error.window_closed'] : t['play.submit']}
+            {isSubmitting ? 'Invio…' : 'Invia ipotesi'}
+            {!isSubmitting && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+            )}
           </button>
         </div>
-      </footer>
+      </header>
 
-      {confirmOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t['play.confirm']}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
-        >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h2 className="mb-2 text-lg font-semibold">{t['play.confirm']}</h2>
-            {pin ? (
-              <p className="mb-4 text-sm text-neutral-700">
-                {pin.lat.toFixed(4)}, {pin.lng.toFixed(4)}
-              </p>
-            ) : null}
-            <div className="flex gap-3">
+      {/* Floating mini-map */}
+      <motion.div
+        layout
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        className="absolute bottom-4 right-4 z-20 overflow-hidden rounded-2xl border border-white/15 shadow-2xl"
+        style={{ width: expanded ? 380 : 56, height: expanded ? 340 : 56 }}
+      >
+        {expanded ? (
+          <div className="relative h-full w-full">
+            <GuessMap onChange={setPin} disabled={expired} />
+
+            {/* top strip */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/45 to-transparent px-3 pb-3 pt-2">
+              <span className="text-[10px] uppercase tracking-wider text-white/85">
+                {pin ? 'Pin posizionato' : 'Piazza il segnaposto'}
+              </span>
               <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={isSubmitting}
-                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+                className="pointer-events-auto rounded-md bg-white/15 px-2 py-0.5 text-[10px] text-white hover:bg-white/25"
+                onClick={() => setExpanded(false)}
               >
-                {t['play.confirm_no']}
+                ↕ riduci
               </button>
+            </div>
+
+            {/* bottom strip */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/55 to-transparent px-3 pb-3 pt-6 text-white">
+              <div className="text-[11px]">
+                {pin ? (
+                  <p className="font-mono tabular-nums">
+                    ≈ {pin.lat.toFixed(1)}°N · {pin.lng.toFixed(1)}°E
+                  </p>
+                ) : (
+                  <p className="opacity-65">Piazza il segnaposto</p>
+                )}
+              </div>
               <button
-                type="button"
+                className="pointer-events-auto rounded-lg bg-flame px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40"
+                disabled={!canSubmit}
                 onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="flex-1 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {t['play.confirm_yes']}
+                Conferma
               </button>
             </div>
           </div>
+        ) : (
+          <button
+            onClick={() => setExpanded(true)}
+            className="flex h-full w-full items-center justify-center bg-black/55 text-white"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M9 15l6-6" opacity="0.5"/>
+            </svg>
+          </button>
+        )}
+      </motion.div>
+
+      {/* KB hint pill */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center">
+        <div className="rounded-full bg-black/45 px-4 py-2 text-[11px] text-white/85 backdrop-blur-md">
+          <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px]">drag</kbd>{' '}per esplorare ·{' '}
+          <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px]">tap</kbd>{' '}sulla mappa per piazzare ·{' '}
+          <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd>{' '}per inviare
         </div>
-      ) : null}
-    </div>
+      </div>
+
+      {error && (
+        <div className="absolute inset-x-4 top-20 z-30 rounded-xl bg-red-900/80 px-4 py-3 text-sm text-white backdrop-blur-sm">
+          {error}
+        </div>
+      )}
+    </main>
   );
 }

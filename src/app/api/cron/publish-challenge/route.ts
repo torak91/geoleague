@@ -16,6 +16,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WINDOW_HOURS = 2;
+// Each slot spans 8 hours from its publish_after_hour.
+const SLOT_SPAN_HOURS = 8;
 
 type PublishOutcome =
   | { status: 'published'; challenge_id: string; published_at: string; window_closes_at: string }
@@ -33,11 +35,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
-  // ---- Window gate --------------------------------------------------------
   const now = new Date();
   const { hour, minute } = romeHourMinute(now);
-  const probability = publishProbability(hour, minute);
-  if (probability === 0) {
+
+  // Skip before earliest possible slot (09:00 Rome).
+  if (hour < 9) {
     return NextResponse.json<{ ok: true } & PublishOutcome>({
       ok: true,
       status: 'skipped',
@@ -45,16 +47,37 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ---- Today's challenge --------------------------------------------------
-  const today = romeDateIso(now);
   const svc = createSupabaseServiceClient();
 
-  const { data: challenge, error: lookupError } = await svc
+  // ---- Guard: another challenge still active --------------------------------
+  // Sequential model: only one challenge window open at a time.
+  const { data: active } = await svc
     .from('challenges')
     .select('id')
+    .not('window_closes_at', 'is', null)
+    .gt('window_closes_at', now.toISOString())
+    .limit(1)
+    .maybeSingle();
+
+  if (active) {
+    return NextResponse.json<{ ok: true } & PublishOutcome>({
+      ok: true,
+      status: 'skipped',
+      reason: 'challenge_active',
+    });
+  }
+
+  // ---- Today's eligible candidates ----------------------------------------
+  // All unpublished challenges for today whose slot has started.
+  const today = romeDateIso(now);
+
+  const { data: candidates, error: lookupError } = await svc
+    .from('challenges')
+    .select('id, publish_after_hour')
     .eq('scheduled_for', today)
     .is('published_at', null)
-    .maybeSingle();
+    .lte('publish_after_hour', hour)
+    .order('publish_after_hour', { ascending: true });
 
   if (lookupError) {
     return NextResponse.json({ ok: false, error: 'lookup_failed', detail: lookupError.message }, {
@@ -62,15 +85,32 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  if (!candidates || candidates.length === 0) {
+    return NextResponse.json<{ ok: true } & PublishOutcome>({ ok: true, status: 'no_challenge' });
+  }
+
+  // Pick the first candidate still inside its publish window.
+  let challenge: { id: string; publish_after_hour: number } | null = null;
+  let probability = 0;
+  for (const c of candidates) {
+    const p = publishProbability(hour, minute, c.publish_after_hour, c.publish_after_hour + SLOT_SPAN_HOURS);
+    if (p > 0) {
+      challenge = c;
+      probability = p;
+      break;
+    }
+  }
+
   if (!challenge) {
     return NextResponse.json<{ ok: true } & PublishOutcome>({
       ok: true,
-      status: 'no_challenge',
+      status: 'skipped',
+      reason: 'outside_window',
     });
   }
 
   // ---- Probability dice ---------------------------------------------------
-  // probability === 1 → forced publish (16:30+).
+  // probability === 1 → forced publish (at slot end - 30 min).
   if (probability < 1 && Math.random() >= probability) {
     return NextResponse.json<{ ok: true } & PublishOutcome>({
       ok: true,
@@ -108,10 +148,6 @@ export async function GET(request: NextRequest) {
   }
 
   // ---- Notification fan-out --------------------------------------------
-  // Push and email run sequentially but independently. The log table
-  // de-duplicates each channel separately via the unique
-  // (challenge_id, user_id, channel, kind) constraint, so a cron retry after
-  // partial failure only resends the channels that have not yet been logged.
   await dispatchLaunchPush(svc, updated.id);
   await dispatchLaunchEmail(svc, updated.id);
 
@@ -128,7 +164,6 @@ async function dispatchLaunchPush(
   svc: ReturnType<typeof createSupabaseServiceClient>,
   challengeId: string,
 ) {
-  // All users who opted in to push for the launch kind.
   const { data: targets } = await svc
     .from('profiles')
     .select('id')
@@ -138,7 +173,6 @@ async function dispatchLaunchPush(
 
   const userIds = targets.map((t) => t.id);
 
-  // Exclude users we already pushed for this challenge (cron retry safety).
   const alreadyNotified = await fetchAlreadyNotifiedUserIds(svc, challengeId, 'push', 'launch');
   const sentSet = new Set(alreadyNotified);
   const pending = userIds.filter((id) => !sentSet.has(id));
@@ -167,13 +201,11 @@ async function dispatchLaunchEmail(
   svc: ReturnType<typeof createSupabaseServiceClient>,
   challengeId: string,
 ) {
-  // Users eligible by channel preference or by staleness (>3 days).
   const STALE_DAYS = 3;
   const stalenessCutoff = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const userIds = await fetchEmailRecipientUserIds(svc, stalenessCutoff);
   if (userIds.length === 0) return;
 
-  // Exclude users we already emailed for this challenge (cron retry safety).
   const alreadyNotified = await fetchAlreadyNotifiedUserIds(svc, challengeId, 'email', 'launch');
   const sentSet = new Set(alreadyNotified);
   const pending = userIds.filter((id) => !sentSet.has(id));

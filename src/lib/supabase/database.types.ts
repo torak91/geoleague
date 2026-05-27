@@ -103,6 +103,7 @@ export type Database = {
           lat: number
           lng: number
           location_label: string | null
+          publish_after_hour: number
           published_at: string | null
           region: string
           scheduled_for: string
@@ -117,6 +118,7 @@ export type Database = {
           lat: number
           lng: number
           location_label?: string | null
+          publish_after_hour?: number
           published_at?: string | null
           region: string
           scheduled_for: string
@@ -131,6 +133,7 @@ export type Database = {
           lat?: number
           lng?: number
           location_label?: string | null
+          publish_after_hour?: number
           published_at?: string | null
           region?: string
           scheduled_for?: string

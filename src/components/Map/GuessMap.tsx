@@ -14,8 +14,8 @@ const pinIcon = L.divIcon({
   className: 'gl-pin',
   html: `
     <svg viewBox="0 0 24 32" width="28" height="36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M12 0C5.4 0 0 5.4 0 12c0 8.6 12 20 12 20s12-11.4 12-20C24 5.4 18.6 0 12 0z" fill="#dc2626"/>
-      <circle cx="12" cy="12" r="4" fill="#ffffff"/>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 8.6 12 20 12 20s12-11.4 12-20C24 5.4 18.6 0 12 0z" fill="#DA5520"/>
+      <circle cx="12" cy="12" r="4" fill="#FBF8F2"/>
     </svg>
   `,
   iconSize: [28, 36],
