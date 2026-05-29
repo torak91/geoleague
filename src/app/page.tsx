@@ -12,10 +12,23 @@ export default async function HomePage() {
   const { user, supabase } = await getCurrentUser();
 
   // Active challenge
-  const { data: challenge } = await supabase
+  let { data: challenge } = await supabase
     .from('active_challenge_public')
     .select('id, window_closes_at, scheduled_for')
     .maybeSingle();
+
+  // Debug: fall back to most recent closed challenge so it always appears live
+  if (!challenge && process.env.DEBUG_ALWAYS_LIVE === 'true') {
+    const { data: lastClosed } = await supabase
+      .from('closed_challenge_public')
+      .select('id, window_closes_at, scheduled_for')
+      .order('published_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastClosed) {
+      challenge = { ...lastClosed, window_closes_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() };
+    }
+  }
 
   let existingPlayId: string | null = null;
   let profile: { streak_count: number; longest_streak: number; display_name: string | null; } | null = null;

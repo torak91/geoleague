@@ -9,11 +9,23 @@ export default async function PlayPage({ params }: { params: { challengeId: stri
   // 1. Verify the challenge is currently active (window open, published).
   //    active_challenge_public hides lat/lng and only includes rows whose
   //    window has not yet elapsed.
-  const { data: challenge } = await supabase
+  let { data: challenge } = await supabase
     .from('active_challenge_public')
     .select('id, image_prefix, window_closes_at')
     .eq('id', params.challengeId)
     .maybeSingle();
+
+  // Debug: allow playing closed challenges by fetching from closed view
+  if (!challenge && process.env.DEBUG_ALWAYS_LIVE === 'true') {
+    const { data: closed } = await supabase
+      .from('closed_challenge_public')
+      .select('id, image_prefix, window_closes_at')
+      .eq('id', params.challengeId)
+      .maybeSingle();
+    if (closed) {
+      challenge = { ...closed, window_closes_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() };
+    }
+  }
 
   if (!challenge) {
     // Either the challenge does not exist, is unpublished, or its window
